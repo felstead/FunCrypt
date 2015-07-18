@@ -8,10 +8,14 @@ var latinString = "The quick brown fox jumped over the lazy dog.";
 var longerLatinString = "BigInteger.js is an arbitrary - length integer library for Javascript, allowing arithmetic operations on integers of unlimited size, notwithstanding memory and time limitations.";
 var mixedString = "The quick brown Фокс jumped over the lazy собака";
 
-function charFor(s) {
-    return s.charCodeAt(0);
-}
+// Shortcut to convert a char to an ascii code
+var charFor = function (char) {
+    return char.charCodeAt(0);
+};
 
+// == Setup
+
+// Setup ranges
 var rangesConfig = [
     { name: 'latinLower', range: [charFor('a'), charFor('z')] },
     { name: 'latinUpper', range: [charFor('A'), charFor('Z')] },
@@ -23,8 +27,12 @@ _.each(rangesConfig, function (conf) {
     conf.base = conf.range[1] - conf.range[0] + 1;
 })
 
-function toTuple(s) {
-    var charCode = charFor(s);
+// == Internal functions
+
+
+// Converts a char to a tuple
+var charToTuple = function(char) {
+    var charCode = charFor(char);
     var match = _.find(rangesConfig, function (conf) {
         return charCode >= conf.range[0] && charCode <= conf.range[1];
     });
@@ -32,11 +40,11 @@ function toTuple(s) {
     return match ? [charCode - match.range[0], match.base] : null;
 }
 
-function getTuples(s) {
+var stringToTuples = function(str) {
     var tuples = [];
-    for (var i = 0; i < s.length; i++) {
-        var char = s[i];
-        tuples.push([char, toTuple(char)]);
+    for (var i = 0; i < str.length; i++) {
+        var char = str[i];
+        tuples.push([char, charToTuple(char)]);
     }
 
     return tuples;
@@ -121,7 +129,7 @@ function blockify(tuples) {
     return blocks;
 }
 
-var blocks= blockify(getTuples(mixedString));
+var blocks= blockify(stringToTuples(mixedString));
 //console.log(blocks[0].encoded.toString());
 //console.log(blocks[0]);
 
@@ -139,7 +147,15 @@ console.log(decrypted);
 
 
 
-//console.log(blockify(getTuples(mixedString)));
+//console.log(blockify(stringToTuples(mixedString)));
 
 //console.log(rangesConfig);
-//console.log(getTuples(mixedString));
+//console.log(stringToTuples(mixedString));
+
+// == Exports
+exports.__privateFunctions = {
+    charFor: charFor,
+    charToTuple: charToTuple,
+    stringToTuples: stringToTuples
+};
+
