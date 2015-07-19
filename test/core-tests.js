@@ -12,7 +12,7 @@ describe('Internals', function () {
     
     var allStrings = [latinString, longerLatinString, mixedString, mixedString2];
 
-    it('needs charFor', function () {
+    it('need charFor', function () {
         var fpf = funcrypt.__privateFunctions;
 
         assert.equal(fpf.charFor('0'), 0x30, 'Zero == ASCII 0x30');
@@ -21,7 +21,7 @@ describe('Internals', function () {
         assert.equal(fpf.charFor('Я'), 0x42F, 'Cyrillic capital Я == Unicode 0x42F');
     })
 
-    it('needs charToTuple', function () {
+    it('need charToTuple', function () {
         var fpf = funcrypt.__privateFunctions;
         
         // TODO: Move to map
@@ -55,7 +55,7 @@ describe('Internals', function () {
         assert.deepEqual(fpf.charToTuple('#'), ['#'], 'Punctuation unsupported');
     })
 
-    it('needs to be able to encode and decode string/tuple pairs', function () {
+    it('should be able to encode and decode string/tuple pairs', function () {
         var fpf = funcrypt.__privateFunctions;
 
         _.each(allStrings, function (s) {
@@ -97,5 +97,45 @@ describe('Internals', function () {
         assert.equal(2, blocks.length, "Should be two blocks for 2^128");
         assert.equal(blockMaxString, blocks[0].encoded.toString(), "Encoded should be equal to original / 10 for numeric");
         assert.equal('6', blocks[1].encoded.toString(), "Encoded should be equal to final digit for numeric");
+    });
+
+    it('should be able to encode/decode word arrays', function () {
+        var fpf = funcrypt.__privateFunctions;
+        
+        var numStrings = [
+            "1133557799bbddff0022446688aaccee", // 128 bit number
+            "1234567890abcdeffedcba0987654321", // another 128-bit
+            "1133557799bbddff0022446688aa", // 112-bit
+            "33557799bbddff002244668", // 84-bit
+            "557799bbddff00", // 64 bit
+            "1234567890", //40-bit
+            "1234" //16 bit
+        ];
+
+        _.each(numStrings, function (ns) {
+            var bigNum = bigInt(ns, 16);
+
+            var wordArray = fpf.bigIntToWordArray(bigNum);
+            
+            var decoded = fpf.wordArrayToBigInt(wordArray);
+            var decodedString = decoded.toString(16)
+
+            assert.equal(ns, decodedString, "Encoding/decoding should be symmetric for 0x" + ns + " => 0x" + decodedString);
+        });
+
+        // We can use this to stress the function a bit if we need to
+        /*
+        var randMax = bigInt(2).pow(128).subtract(1);
+        _.times(10000, function () {
+            var bigNum = bigInt.randBetween(0, randMax);
+            var bigNumStr = bigNum.toString(16);
+
+            var wordArray = fpf.bigIntToWordArray(bigNum);
+            
+            var decoded = fpf.wordArrayToBigInt(wordArray);
+            var decodedString = decoded.toString(16);
+            
+            assert.equal(bigNumStr, decodedString, "Encoding/decoding should be symmetric for 0x" + bigNumStr + " => 0x" + decodedString);
+        });*/
     });
 });

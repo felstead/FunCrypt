@@ -80,25 +80,27 @@ var bigIntToWordArray = function(bigIntValue) {
     //console.log("BigInt: %s", bigIntValue.toString());
     
     var wordArr = [];
-    while (bigIntValue > 0) {
+    for (var i = 0; i < Math.ceil(BLOCK_MAX_BITS / 32); i++) {
         var result = bigIntValue.divmod(WORD_MAX);
         var remainder = result.remainder;
-        if (remainder > Math.pow(2, 31)) {
-            // Two's complement.  Bitwise stuff goes weird at this range.
-            remainder = remainder.subtract(WORD_MAX).add(1);
+        
+        // These need to be signed integers, since wordArray needs those
+        if (remainder >= Math.pow(2, 31)) {
+            // Two's complement.  Bitwise stuff goes weird at this integer range.
+            remainder = remainder.subtract(WORD_MAX);
         }
         wordArr.push(remainder.valueOf());
         bigIntValue = result.quotient;
     }
     
     // TODO: Getting the _actual_ number of sig bytes here based on the encoded data would be better
-    return cryptoJs.lib.WordArray.create(wordArr.reverse(), BLOCK_MAX_BITS / 8);
+    return cryptoJs.lib.WordArray.create(wordArr.reverse());//, BLOCK_MAX_BITS / 8);
 }
 
 var wordArrayToBigInt = function(wordArr, seed) {
     var val = seed || bigInt.zero;
     _.each(wordArr.words, function (w) {
-        val = val.multiply(WORD_MAX).add(w);
+        val = val.multiply(WORD_MAX).add(w>>>0); // >>> coerces to unsigned, which is what we need here
     });
     
     return val;
@@ -114,7 +116,7 @@ function Block()
 
     this.toWordArray = function ()
     {
-
+        return bigIntToWordArray(this.encoded);
     }
 }
 
