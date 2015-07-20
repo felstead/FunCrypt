@@ -9,14 +9,18 @@ to being a crypto guy, so who knows, it might be fine.
 
 Best to use it just for fun though.
 
-Still a work in progress.
+Still a work in progress.  Note this is my first node.js project, so I might be doing/structuring things sub-optimally, but
+I'm trying to learn as I go.
 
 ## Example Encryption
 An example :
-"The quick brown Фокс jumped over the lazy собака"
+"The quick brown Фокс jumped over the lazy собака!"
 
 Encrypts to:
-"The quick brown Фокс jumped over the lazy собака"
+"Jxu ygcuh ywzjc Вфдк gabete eqlz vtd lumk эдтмдч!"
+
+Note the word breaking, casing, punctuation and script stay the same, but the content is garbled.  That's what we're going 
+for.
 
 ## Supported Encodings
 

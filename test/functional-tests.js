@@ -5,7 +5,7 @@ var _ = require('underscore');
 describe('Functionals', function () {
     var fpf = funcrypt.__privateFunctions;
     
-    var shortString = "Testing testing let's GO 123!"
+    var shortString = "Testing testing let's GO 123!";
 
     it('should be able to encrypt/decrypt a short string', function () {
         var password = "Password";
