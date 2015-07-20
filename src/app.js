@@ -106,26 +106,90 @@ var wordArrayToBigInt = function(wordArr, seed) {
     return val;
 }
 
+var bigIntToTuples = function (inputBigInt, seedTuples) {
+    var dissipator = inputBigInt;
+    var tuples = [];
+
+    for (var i = seedTuples.length - 1; i >= 0; i--) {
+        var tuple = seedTuples[i];
+        
+        var encryptedTuple;
+        if (tuple.length == 1) {
+            encryptedTuple = tuple;
+        } else {
+            var result = dissipator.divmod(tuple[1]); // Divide by tuple's base
+            dissipator = result.quotient;
+            
+            encryptedTuple = [result.remainder.valueOf(), tuple[1], tuple[2]];
+        }
+            
+        tuples.unshift(encryptedTuple);
+    }
+
+    return { tuples: tuples, remainder: dissipator };
+};
+
 // == Block object
 function Block()
 {
     this.tuples = [];
-    this.encoded = bigInt.zero;
+    this.encryptedTuples = [];
+    this.encodedBigInt = bigInt.zero;
     this.remainder = bigInt.zero;
-    this.encrypted = null;
+    this.encryptedBigInt = bigInt.zero;
 
-    this.toWordArray = function ()
-    {
-        return bigIntToWordArray(this.encoded);
-    }
+    this.toWordArray = function () {
+        return bigIntToWordArray(this.encodedBigInt);
+    };
+
+    this.encrypt = function (key, iv) {
+        // Generate the encrypted base data
+        var blockWords = bigIntToWordArray(this.encodedBigInt);
+        var encrypted = cryptoJs.AES.encrypt(blockWords, key, { iv: iv, padding: cryptoJs.pad.ZeroPadding });
+        
+        this.cipherText = encrypted.ciphertext;
+        this.encryptedBigInt = wordArrayToBigInt(encrypted.ciphertext);
+        
+        var result = bigIntToTuples(this.encryptedBigInt, this.tuples);
+
+        this.encryptedTuples = result.tuples;
+        this.remainder = result.remainder;
+
+        return encrypted.ciphertext; // Next IV
+    };
+
+    this.decrypt = function (key, iv) {
+        var blockWords = bigIntToWordArray(this.encryptedBigInt);
+        
+        var cipherParams = {
+            ciphertext: blockWords
+        };
+
+        var decrypted = cryptoJs.AES.decrypt(cipherParams, key, { iv: iv, padding: cryptoJs.pad.ZeroPadding });
+
+        this.encodedBigInt = wordArrayToBigInt(decrypted);
+
+        var result = bigIntToTuples(this.encodedBigInt, this.encryptedTuples);
+
+        this.tuples = result.tuples;
+        this.remainder = result.remainder;
+
+        return blockWords; // Next IV
+    };
 }
 
-var blockifyTuples = function(tuples) {
+var blockifyTuples = function(tuples, blockPaddings) {
     var blockAcc = bigInt.one;
     var blockMax = bigInt(2).pow(BLOCK_MAX_BITS);
     //console.log(blockMax);
     
+    var isEncrypted = blockPaddings !== undefined;
+
     var blocks = [new Block()];
+    if (isEncrypted) {
+        blocks[0].encryptedBigInt = blockPaddings[0];
+    }
+
     var currentBlock;
     
     _.each(tuples, function (t) {
@@ -138,25 +202,97 @@ var blockifyTuples = function(tuples) {
                 // Reset the block  and the encoding
                 newBlockAcc = bigInt(base);
                 blocks.push(new Block());
+                
+                if (isEncrypted) {
+                    var lastBlockIndex = blocks.length - 1;
+                    blocks[lastBlockIndex].encryptedBigInt = blockPaddings[lastBlockIndex];
+                }
+
                 lastBlock = _.last(blocks);
             }
             blockAcc = newBlockAcc;
             
-            var encoded = lastBlock.encoded;
-            lastBlock.encoded = encoded.multiply(base).add(value);
+            var encoded = isEncrypted ? lastBlock.encryptedBigInt : lastBlock.encodedBigInt;
+            encoded = encoded.multiply(base).add(value);
+
+            if (isEncrypted) {
+                lastBlock.encryptedBigInt = encoded;
+            } else {
+                lastBlock.encodedBigInt = encoded;
+            }
         }
-        lastBlock.tuples.push(t);
+        
+        if (isEncrypted) {
+            lastBlock.encryptedTuples.push(t);
+        } else {
+            lastBlock.tuples.push(t);
+        }
+    });
+
+    return blocks;
+}
+
+var encryptString = function (inputString, password) {
+    var encryptedString = '';
+    var paddings = [];
+    
+    var tuples = stringToTuples(inputString);
+    var blocks = blockifyTuples(tuples);
+
+    var keys = keysForPassphrase(password);
+    
+    var iv = keys.iv;
+
+    _.each(blocks, function (b) {
+        // Cascade our IV to the next block
+        iv = b.encrypt(iv, keys.key);
+
+        encryptedString += tuplesToString(b.encryptedTuples);
+        paddings.push(b.remainder);
+    });
+
+    return { encryptedString: encryptedString, blockPaddings: paddings };
+}
+
+var decryptString = function (encryptedString, blockPaddings, password) {
+    var decryptedString = '';
+    var paddings = [];
+    
+    // Transform to block array
+    var tuples = stringToTuples(encryptedString);
+    var blocks = blockifyTuples(tuples, blockPaddings);
+    
+    var keys = keysForPassphrase(password);
+    
+    var iv = keys.iv;
+    
+    _.each(blocks, function (b) {
+        // Cascade our IV to the next block
+        iv = b.decrypt(iv, keys.key);
+        
+        decryptedString += tuplesToString(b.tuples);
+        paddings.push(b.remainder);
     });
     
-    return blocks;
+    return { decryptedString: decryptedString, blockPaddings: paddings };
+
+}
+
+var PBKDF_ITERATIONS = 100; // Makes it take about 100ms on my i5 surface pro in node.js
+var keysForPassphrase = function (password, iterations) {
+    var salt = cryptoJs.SHA256(password);
+    var key = cryptoJs.PBKDF2(password, salt, { keySize: BLOCK_MAX_BITS / 32, iterations: iterations || PBKDF_ITERATIONS });
+    var iv = key;
+
+    return { key: key, iv: iv };
 }
 
 /*
 var blocks= blockify(stringToTuples(mixedString));
-//console.log(blocks[0].encoded.toString());
+//console.log(blocks[0].encodedBigInt.toString());
 //console.log(blocks[0]);
 
-var wordArray = bigIntToWordArray(blocks[0].encoded);
+var wordArray = bigIntToWordArray(blocks[0].encodedBigInt);
 console.log(wordArray);
 
 var key = cryptoJs.enc.Hex.parse('000102030405060708090a0b0c0d0e0f');
@@ -176,6 +312,9 @@ console.log(decrypted);
 //console.log(stringToTuples(mixedString));
 
 // == Exports
+
+// Internal bits for testing
+// TODO: Only expose if passed in a 'test' parameter to constructor
 exports.__privateFunctions = {
     charFor: charFor,
     charToTuple: charToTuple,
@@ -188,6 +327,11 @@ exports.__privateFunctions = {
     
     blockifyTuples: blockifyTuples,
     
-    rangesConfig: rangesConfig
+    rangesConfig: rangesConfig,
+
+    keysForPassphrase: keysForPassphrase
 };
 
+// Public
+exports.encryptString = encryptString;
+exports.decryptString = decryptString;
