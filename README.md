@@ -28,6 +28,9 @@ Currently supported:
 * Latin
 * Latin numeric
 * Cyrillic
+* Greek (kinda)
+* Hebrew
+* Japanese (Hiragana/Katakana, no Kanji)
 
 Want to support:
 * Emoji

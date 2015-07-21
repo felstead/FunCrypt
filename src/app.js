@@ -13,10 +13,21 @@ var charFor = function (char) {
 
 // Setup ranges
 var rangesConfig = [
+    // Latin, no unicode extensions yet
     { name: 'latinLower', range: [charFor('a'), charFor('z')] },
     { name: 'latinUpper', range: [charFor('A'), charFor('Z')] },
+    // Cyrillic
     { name: 'cyrillicLower', range: [charFor('а'), charFor('я')] },
     { name: 'cyrillicUpper', range: [charFor('А'), charFor('Я')] },
+    // Greek: these are incomplete based on the best contiguous case ranges I could find here: http://www.alanwood.net/unicode/greek.html
+    { name: 'greekUpper', range: [charFor('Ά'), charFor('Ϋ')] },
+    { name: 'greekLower', range: [charFor('ά'), charFor('ώ')] },
+    // Hebrew from here: http://www.alanwood.net/unicode/hebrew.html
+    { name: 'hebrew', range: [charFor('א'), charFor('ת')] },
+    // Japanese
+    { name: 'hiragana', range: [charFor('ぁ'), charFor('ゖ')] },
+    { name: 'katakana', range: [charFor('゠'), charFor('ヺ')] },
+    // Numbers, boring
     { name: 'numeric', range: [charFor('0'), charFor('9')] },
 ];
 
@@ -233,6 +244,9 @@ var blockifyTuples = function(tuples, blockPaddings) {
 }
 
 var encryptString = function (inputString, password) {
+    if (inputString.length == 0) {
+        return '';
+    }
     var encryptedString = '';
     var paddings = [];
     
@@ -255,6 +269,10 @@ var encryptString = function (inputString, password) {
 }
 
 var decryptString = function (encryptedString, blockPaddings, password) {
+    if (encryptedString.length == 0) {
+        return '';
+    }
+
     var decryptedString = '';
     var paddings = [];
     

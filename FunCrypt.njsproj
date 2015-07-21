@@ -41,6 +41,7 @@
     </Compile>
     <Content Include="src\package.json" />
     <Content Include="README.md" />
+    <Content Include="test\test-corpus.txt" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="src\" />
