@@ -117,6 +117,74 @@ var wordArrayToBigInt = function(wordArr, seed) {
     return val;
 }
 
+// Bit manipulation stuff for Feistel network
+var getBottomBits = function (wordArr, bits) {
+    var bottomWordCount = Math.floor(bits / 32);
+
+    var bitArr = bottomWordCount > 0 ? wordArr.slice(-bottomWordCount) : [];
+    
+    if (bottomWordCount > wordArr.length) {
+        // Add padding
+        _.times(bottomWordCount - wordArr.length, function () { bitArr.unshift(0) });
+    }
+
+    var remainingBits = bits % 32;
+
+    if (remainingBits > 0) {
+        var word = wordArr[wordArr.length - bottomWordCount - 1] || 0;
+        var mask = getBitMask(remainingBits);
+        bitArr.unshift(word & mask);
+    }
+
+    return bitArr;
+};
+
+function a2hex(arr) { return _.map(arr, function (a) { return (a >>> 0).toString(16); });}
+
+var getAndShiftTopBits = function (wordArr, bits, totalBits) {
+    var topBitIndex = totalBits - 1;
+    var bottomBitIndex = totalBits - bits;
+    var firstWordOffset = Math.floor(topBitIndex / 32);
+    var lastWordOffset = Math.floor(bottomBitIndex / 32);
+    
+    /*console.log();
+    console.log("TOT: %d  BITS: %d", totalBits, bits);
+    console.log("FWO: %d  LWO: %d from %d-%d", firstWordOffset, lastWordOffset, topBitIndex, bottomBitIndex);*/
+
+    var workingWordArr = wordArr;
+    if (firstWordOffset > wordArr.length) {
+        workingWordArr = wordArr.slice(); // Clone
+        _.times(firstWordOffset - wordArr.length, function () { workingWordArr.unshift(0) });
+    }
+
+    var bitArr = workingWordArr.slice(workingWordArr.length -1 - firstWordOffset, workingWordArr.length - lastWordOffset);
+    
+    //console.log(a2hex(wordArr) + " => " + a2hex(bitArr));
+
+    var shift = (totalBits - bits) % 32;
+    var overflowMask = getBitMask(shift);
+    
+    // Mask out top bits that are > totalBits
+    bitArr[0] &= getBitMask(totalBits % 32);
+    
+    var overflow = 0;
+    for (var i = 0; i < bitArr.length; i++) {
+        var word = bitArr[i];
+        var newOverflow = word & overflowMask;
+        //console.log("%s >>> %d + %s << %d", (word >>> 0).toString(16), shift, (overflow >>> 0).toString(16), 32 - shift);
+        bitArr[i] = ((word >>> shift) + (overflow << (32 - shift))) >> 0;
+        //console.log(" => %s", (bitArr[i] >>> 0).toString(16));
+        overflow = newOverflow;
+    }
+    
+    // Trim leading zeroes if necessary
+    return bitArr.length > 1 && bitArr[0] == 0 ? bitArr.slice(1) : bitArr;
+}
+
+var getBitMask = function (bits) {
+    return 0xFFFFFFFF >>> (32 - bits);
+}
+
 var bigIntToTuples = function (inputBigInt, seedTuples) {
     var dissipator = inputBigInt;
     var tuples = [];
@@ -343,6 +411,9 @@ exports.__privateFunctions = {
     bigIntToWordArray: bigIntToWordArray,
     wordArrayToBigInt: wordArrayToBigInt,
     
+    getBottomBits: getBottomBits,
+    getAndShiftTopBits: getAndShiftTopBits,
+
     blockifyTuples: blockifyTuples,
     
     rangesConfig: rangesConfig,

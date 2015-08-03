@@ -169,4 +169,76 @@ describe('Internals', function () {
         var decrypted = fpf.tuplesToString(encryptedBlocks[0].tuples);
         assert.equal(unencrypted, decrypted, "Encrypted string should decrypt to original: " + unencrypted + " => " + decrypted);
     });
+    
+    // crypto-js expects signed integers, so we ensure we make sure the hex goes to its signed representation
+    var signifyArray = function (arr) {
+        return _.map(arr, function (e) { return e >> 0 });
+    }
+
+    it('should be able to grab the bottom bit slices of word arrays', function () {
+        var testWordArr = signifyArray([0x12345678, 0x9ABCDEF0, 0xDEADBEEF]);
+
+        // Test 32 bit chunks
+        var bottom32 = fpf.getBottomBits(testWordArr, 32);
+        assert.deepEqual(bottom32, signifyArray([0xDEADBEEF]));
+
+        var bottom64 = fpf.getBottomBits(testWordArr, 64);
+        assert.deepEqual(bottom64, signifyArray([0x9ABCDEF0, 0xDEADBEEF]));
+
+        var bottom96 = fpf.getBottomBits(testWordArr, 96);
+        assert.deepEqual(bottom96, signifyArray([0x12345678, 0x9ABCDEF0, 0xDEADBEEF]));
+        
+        // Overflow - tests padding
+        var bottom128 = fpf.getBottomBits(testWordArr, 128);
+        assert.deepEqual(bottom128, signifyArray([0, 0x12345678, 0x9ABCDEF0, 0xDEADBEEF]));
+
+        // Test fractions
+        var bottom3 = fpf.getBottomBits(testWordArr, 3);
+        assert.deepEqual(bottom3, signifyArray([0x7]));
+
+        var bottom6 = fpf.getBottomBits(testWordArr, 6);
+        assert.deepEqual(bottom6, signifyArray([0x2F]));
+
+        var bottom43 = fpf.getBottomBits(testWordArr, 43);
+        assert.deepEqual(bottom43, signifyArray([0x6F0, 0xDEADBEEF]));
+
+        // Overflow with fraction
+        var bottom97 = fpf.getBottomBits(testWordArr, 97);
+        assert.deepEqual(bottom97, signifyArray([0, 0x12345678, 0x9ABCDEF0, 0xDEADBEEF]));
+    });
+
+    it('should be able to grab the top bit slices of word arrays', function () {
+        var testWordArr = signifyArray([0x12345678, 0x9ABCDEF0, 0xDEADBEEF]);
+        
+        // Test 32 bit chunks
+        var top32 = fpf.getAndShiftTopBits(testWordArr, 32, 96);
+        assert.deepEqual(top32, signifyArray([0x12345678]));
+
+        top32 = fpf.getAndShiftTopBits(testWordArr, 32, 64);
+        assert.deepEqual(top32, signifyArray([0x9ABCDEF0]));
+
+        top32 = fpf.getAndShiftTopBits(testWordArr, 32, 128);
+        assert.deepEqual(top32, signifyArray([0x0]));
+
+        // Test various offsets
+        var top16 = fpf.getAndShiftTopBits(testWordArr, 16, 32);
+        assert.deepEqual(top16, signifyArray([0xDEAD]));
+
+        top16 = fpf.getAndShiftTopBits(testWordArr, 16, 48);
+        assert.deepEqual(top16, signifyArray([0xDEF0]));
+
+        top16 = fpf.getAndShiftTopBits(testWordArr, 16, 72);
+        assert.deepEqual(top16, signifyArray([0x789A]));
+
+        // Test multiple word selections
+        var top40 = fpf.getAndShiftTopBits(testWordArr, 40, 96);
+        assert.deepEqual(top40, signifyArray([0x12, 0x3456789A]));
+
+        top40 = fpf.getAndShiftTopBits(testWordArr, 40, 48);
+        assert.deepEqual(top40, signifyArray([0xDE, 0xF0DEADBE]));
+
+        top71 = fpf.getAndShiftTopBits(testWordArr, 71, 90);
+        assert.deepEqual(top71, signifyArray([0x46, 0x8ACF1357, 0x9BDE1BD5]));
+    });
+
 });
